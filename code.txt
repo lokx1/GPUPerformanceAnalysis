@@ -1,0 +1,262 @@
+library(tidyverse)
+library(ggplot2)
+library(dplyr)    # alternatively, this also loads %>%
+install.packages("stringr")
+library(stringr)
+install.packages("corrplot")
+library(corrplot)
+install.packages("corrplot")
+install.packages("stringr")
+library(readr)
+gpu_data <- read_csv("BACH KHOA/probality/All_GPUs.csv")
+install.packages("stringr")
+gpu_data <- read_csv("BACH KHOA/probality/All_GPUs.csv")
+library(readr)
+gpu_data <- read_csv("~/BACH KHOA/probality/All_GPUs.csv")
+View(gpu_data)
+View(gpu_data)
+#L2_Cache convert
+L2_IntConvert <- function(input_string) {
+pattern <- "^([0-9]+)KB(?:\\(x([0-9]+)\\))?$"
+# Initialize the result vector
+result <- vector("numeric", length(input_string))
+# Iterate over each input string
+for (i in seq_along(input_string)) {
+# Get the current string
+current_string <- input_string[i]
+# Check for NA input
+if (is.na(current_string)) {
+result[i] <- NA
+next
+}
+# Perform regex search and extract matches
+matches <- regmatches(current_string, regexec(pattern, current_string))[[1]]
+# If no match, set result to NA
+if (length(matches) == 0) {
+result[i] <- NA
+next
+}
+# Extract the numeric part and optional multiplier
+numeric_value <- as.integer(matches[2])
+multiplier <- if (length(matches) > 2 && matches[3] != "") as.integer(matches[3]) else 1
+result[i] <- numeric_value * multiplier
+}
+return(result)
+}
+ROPs_IntConvert <- function(input_string) {
+pattern <- "^([0-9]+)(?:\\s*\\(x([0-9]+)\\))?$"
+result <- vector("numeric", length(input_string))
+for (i in seq_along(input_string)) {
+# Get the current string
+current_string <- input_string[i]
+# Check for NA input
+if (is.na(current_string)) {
+result[i] <- NA
+next
+}
+# Use regex to extract the numeric part and optional multiplier
+matches <- regmatches(current_string, regexec(pattern, current_string))[[1]]
+# If no match, return NA
+if (length(matches) == 0) {
+result[i] <- NA
+next
+}
+# Convert the numeric part and optional multiplier (default to 1) and calculate the result
+numeric_value <- as.integer(matches[2])
+multiplier <- if (length(matches) > 2 && matches[3] != "") as.integer(matches[3]) else 1
+result[i] <- numeric_value * multiplier
+}
+return(result)
+}
+#DATA CLEANING
+#standardize variables with units
+gpu_data$Boost_Clock <- as.integer(gsub("\\D","",gpu_data$Boost_Clock))
+gpu_data$Core_Speed <- as.integer(gsub("\\D","",gpu_data$Core_Speed))
+gpu_data$Max_Power <- as.integer(gsub("\\D","",gpu_data$Max_Power))
+gpu_data$Memory <- as.integer(gsub("\\D","",gpu_data$Memory))
+gpu_data$Memory_Bandwidth <- as.numeric(gsub("[^0-9.]+","",gpu_data$Memory_Bandwidth))
+gpu_data$Memory_Bus <- as.integer(gsub("\\D","",gpu_data$Memory_Bus))
+gpu_data$Memory_Speed <- as.integer(gsub("\\D","",gpu_data$Memory_Speed))
+gpu_data$Pixel_Rate <- as.integer(gsub("\\D","",gpu_data$Pixel_Rate))
+gpu_data$Process <- as.integer(gsub("\\D","",gpu_data$Process))
+gpu_data$Texture_Rate <- as.integer(gsub("\\D","",gpu_data$Texture_Rate))
+gpu_data$L2_Cache <- L2_IntConvert(gpu_data$L2_Cache)
+gpu_data$PSU_Watt <- str_extract(gpu_data$PSU,"\\d+(?= Watt)") %>% as.integer()
+gpu_data$PSU_Amps <- str_extract(gpu_data$PSU, "\\d+(?= Amps)") %>% as.integer()
+gpu_data$ROPs <- ROPs_IntConvert(gpu_data$ROPs)
+instances = nrow(gpu_data)
+colname <- names(gpu_data)
+gpu_data[gpu_data == "" | gpu_data == "\nUnknown Release Date "]<- NA
+missing_count <- colSums(is.na(gpu_data)) * 100 / instances
+print(missing_count)
+missing_data <- data.frame(feature = colname, non_missing = 100 - missing_count, missing = missing_count)
+missing_data %>%
+pivot_longer(-feature) %>%
+ggplot( aes(x = feature, y = value, fill = name)) +
+geom_col(position = position_stack(vjust=1, reverse=TRUE)) +
+theme(axis.text.x = element_text(angle = 90,hjust = 1, vjust = 0.3)) +
+xlab("Features") +
+ylab("Percentages") +
+labs(fill = NULL)
+library(dplyr)
+desired_columns <- c("Core_Speed","L2_Cache","Max_Power","Memory","Memory_Bandwidth","Memory_Bus","Memory_Speed","Memory_Type","Notebook_GPU","Open_GL","PSU_Amps","PSU_Watt","Pixel_Rate","Process","ROPs","TMUs","Texture_Rate")
+# Create a new dataset with only the specified columns
+New_gpu_data <- subset(gpu_data, select = desired_columns)
+# Delete rows with value <NA> in column Architecture
+#New_gpu_data <- New_gpu_data %>%
+#    filter(!is.na(Architecture))
+View(New_gpu_data)
+install.packages("VIM")
+library(VIM)
+gpu_KNN <- kNN(New_gpu_data, k = 58)
+gpu_KNN <- gpu_KNN[, !grepl("_imp$", names(gpu_KNN))]
+View(gpu_KNN)
+summary(New_gpu_data)
+# correlation coefficient between variables
+delName <- c("Architecture","Dedicated","Direct_X","Manufacturer","Notebook_GPU","Memory_Type","Name","Power_Connector","Release_Date","Release_Price","SLI_Crossfire"
+)
+data <- gpu_KNN[, !names(gpu_KNN) %in% delName]
+new_data <- sapply(data,as.numeric)
+cor_matrix <- cor(new_data)
+cor_matrix
+corrplot(cor_matrix, method = "circle")
+Core_Speed<-xtabs(~Core_Speed,data=gpu_KNN)
+print(Core_Speed)
+summary(Core_Speed)
+L2_Cache<-xtabs(~L2_Cache,data=gpu_KNN)
+print(L2_Cache)
+#Manufacturer<-xtabs(~Manufacturer,data=gpu_KNN)
+#print(Manufacturer)
+Max_Power<-xtabs(~Max_Power,data=gpu_KNN)
+print(Max_Power)
+Memory<-xtabs(~Memory,data=gpu_KNN)
+print(Memory)
+Memory_Bandwidth<-xtabs(~Memory_Bandwidth,data=gpu_KNN)
+print(Memory_Bandwidth)
+Memory_Bus<-xtabs(~Memory_Bus,data=gpu_KNN)
+print(Memory_Bus)
+Memory_Speed<-xtabs(~Memory_Speed,data=gpu_KNN)
+print(Memory_Speed)
+Memory_Type<-xtabs(~Memory_Type,data=gpu_KNN)
+print(Memory_Type)
+Notebook_GPU<-xtabs(~Notebook_GPU,data=gpu_KNN)
+print(Notebook_GPU)
+Open_GL	<-xtabs(~Open_GL,data=gpu_KNN)
+print(Open_GL)
+PSU<-xtabs(~PSU_Amps,data=gpu_KNN)
+print(PSU_Amps)
+calc_median <- function(x) {
+m <- median(x)
+data.frame(y = m, label = paste0("Median: ", round(m, 2)))
+}
+# Boxplot of Pixel_Rate
+plot1 <- ggplot(gpu_KNN, aes(x = "Pixel Rate", y = Pixel_Rate)) +
+geom_boxplot() +
+stat_summary(fun.data = calc_median, geom = "text", vjust = -0.5) +
+labs(title = "Boxplot of Pixel Rate") +
+ylab("Frequency")
+# Boxplot of Memory
+plot2 <- ggplot(gpu_KNN, aes(x = "ROPs", y = ROPs)) +
+geom_boxplot() +
+stat_summary(fun.data = calc_median, geom = "text", vjust = -0.5) +
+labs(title = "Boxplot of ROPs") +
+ylab("Frequency")
+# Boxplot of Memory_Bus
+plot3 <- ggplot(gpu_KNN, aes(x = "TMUs", y = TMUs)) +
+geom_boxplot() +
+stat_summary(fun.data = calc_median, geom = "text", vjust = -0.5) +
+labs(title = "Boxplot of TMUs") +
+ylab("Frequency")
+# Boxplot of Memory_Speed
+plot4 <- ggplot(gpu_KNN, aes(x = "Texture Rate", y = Texture_Rate)) +
+geom_boxplot() +
+stat_summary(fun.data = calc_median, geom = "text", vjust = -0.5) +
+labs(title = "Boxplot of Texture Rate") +
+ylab("Frequency")
+# Combine the plots
+combined_plot <- plot_grid(plot1, plot2, plot3, plot4, ncol = 2)
+# List of factors to plot against Memory_Bandwidth
+factors <- c("PSU_Watt", "Max_Power", "Pixel_Rate", "ROPs", "TMUs", "Texture_Rate")
+# Create a list to store the plots
+plots <- lapply(factors, function(factor) {
+plot_scatter(gpu_data, x_var = factor, y_var = "Memory_Bandwidth")
+})
+# Function to calculate median
+calc_median <- function(x) {
+m <- median(x)
+data.frame(y = m, label = paste0("Median: ", round(m, 2)))
+}
+# Boxplot of Pixel_Rate
+plot1 <- ggplot(gpu_KNN, aes(x = "Pixel Rate", y = Pixel_Rate)) +
+geom_boxplot() +
+stat_summary(fun.data = calc_median, geom = "text", vjust = -0.5) +
+labs(title = "Boxplot of Pixel Rate") +
+ylab("Frequency")
+# Boxplot of Memory
+plot2 <- ggplot(gpu_KNN, aes(x = "ROPs", y = ROPs)) +
+geom_boxplot() +
+stat_summary(fun.data = calc_median, geom = "text", vjust = -0.5) +
+labs(title = "Boxplot of ROPs") +
+ylab("Frequency")
+# Boxplot of Memory_Bus
+plot3 <- ggplot(gpu_KNN, aes(x = "TMUs", y = TMUs)) +
+geom_boxplot() +
+stat_summary(fun.data = calc_median, geom = "text", vjust = -0.5) +
+labs(title = "Boxplot of TMUs") +
+ylab("Frequency")
+# Boxplot of Memory_Speed
+plot4 <- ggplot(gpu_KNN, aes(x = "Texture Rate", y = Texture_Rate)) +
+geom_boxplot() +
+stat_summary(fun.data = calc_median, geom = "text", vjust = -0.5) +
+labs(title = "Boxplot of Texture Rate") +
+ylab("Frequency")
+# Combine the plots
+combined_plot <- plot_grid(plot1, plot2, plot3, plot4, ncol = 2)
+# Plotting function for scatter plots
+plot_scatter <- function(data, x_var, y_var) {
+ggplot(data, aes_string(x = x_var, y = y_var)) +
+geom_point() +
+labs(x = x_var, y = y_var) +
+theme_minimal()
+}
+# List of factors to plot against Memory_Bandwidth
+factors <- c("PSU_Watt", "Max_Power", "Pixel_Rate", "ROPs", "TMUs", "Texture_Rate")
+# Create a list to store the plots
+plots <- lapply(factors, function(factor) {
+plot_scatter(gpu_data, x_var = factor, y_var = "Memory_Bandwidth")
+})
+# Combine all plots into one image
+multiplot <- cowplot::plot_grid(plotlist = plots, nrow = 2)
+plot_histogram_with_median <- function(data, x_var, title) {
+median_val <- median(data[[x_var]], na.rm = TRUE)
+ggplot(data, aes_string(x = x_var)) +
+geom_histogram(binwidth = 50, fill = "skyblue", color = "black") +
+geom_vline(xintercept = median_val, color = "red", linetype = "dashed", size = 1) + # Add median line
+labs(x = x_var, y = "Frequency", title = title) +
+theme_minimal()
+}
+# Create histograms for PSU_Watt and Max_Power with median
+histograms_with_median <- list(
+plot_histogram_with_median(gpu_data, "PSU_Watt", "Histogram of PSU Watt"),
+plot_histogram_with_median(gpu_data, "Max_Power", "Histogram of Max Power")
+)
+# Combine the histograms into one image
+combined_histogram_with_median <- cowplot::plot_grid(plotlist = histograms_with_median, ncol = 2)
+# Khởi tạo mô hình hồi quy tuyến tính đa biến
+mlr_model <- lm(Memory_Bandwidth ~ Core_Speed + Max_Power + Memory + PSU_Watt, data = gpu_KNN)
+# In bản tóm tắt của mô hình để xem kết quả
+summary(mlr_model)
+# Kiểm tra đa cộng tuyến
+if (!require(car)) {
+install.packages("car")
+library(car)
+}
+vif_data <- vif(mlr_model)
+print(vif_data)
+# Phân tích sai số của mô hình
+residuals <- residuals(mlr_model)
+hist(residuals, main = "Histogram of Residuals", xlab = "Residuals")
+qqnorm(residuals)
+qqline(residuals, col = "red")
+# Vẽ biểu đồ để kiểm tra các giả định hồi quy
+plot(mlr_model)
